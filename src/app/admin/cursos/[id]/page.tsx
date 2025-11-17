@@ -1,4 +1,4 @@
-"use client";
+// Removido 'use client' para permitir uso de generateStaticParams
 
 // Função para exportação estática dos parâmetros dinâmicos
 export async function generateStaticParams() {
