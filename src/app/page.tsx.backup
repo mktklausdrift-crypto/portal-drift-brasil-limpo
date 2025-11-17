@@ -1,0 +1,337 @@
+import Link from "next/link";
+import Head from "next/head";
+import Image from "next/image";
+import { getTextPreview } from "@/lib/utils";
+import prisma from "@/lib/prisma";
+import HeroVideoClientWrapper from "@/components/HeroVideoClientWrapper";
+
+export const revalidate = 0; // Desabilita cache estatico - sempre busca dados atualizados
+
+interface Noticia { id: string; title: string; content: string; image: string | null; createdAt: Date; }
+interface Produto { id: string; codigo: string | null; nome: string; preco: number; imagem: string | null; destaque: boolean; }
+interface Curso { id: string; titulo: string; modalidade: string; cargaHoraria: string; imagem: string | null; destaque: boolean; }
+interface HomeStats { totalUsuarios: number; totalProdutos: number; totalNoticias: number; totalCursos: number; }
+
+async function getHomeData(): Promise<{ noticias: Noticia[]; produtos: Produto[]; cursos: Curso[]; stats: HomeStats; }> {
+  const [noticias, produtos, cursos, totalUsuarios, totalProdutos, totalNoticias, totalCursos] = await Promise.all([
+    prisma.post.findMany({
+      where: { published: true },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+      select: { id: true, title: true, content: true, image: true, createdAt: true }
+    }),
+    prisma.produto.findMany({
+      where: { destaque: true },
+      orderBy: { nome: 'asc' },
+      take: 8,
+      select: { id: true, codigo: true, nome: true, preco: true, imagem: true, destaque: true }
+    }),
+    prisma.curso.findMany({
+      where: { inscricoesAbertas: true },
+      orderBy: { titulo: 'asc' },
+      take: 6,
+      select: { id: true, titulo: true, modalidade: true, cargaHoraria: true, imagem: true, destaque: true }
+    }),
+    prisma.user.count(),
+    prisma.produto.count(),
+    prisma.post.count({ where: { published: true } }),
+    prisma.curso.count(),
+  ]);
+  return { noticias, produtos, cursos, stats: { totalUsuarios, totalProdutos, totalNoticias, totalCursos } };
+}
+
+export default async function HomePage() {
+  let noticiasDestaque: Noticia[] = [];
+  let produtosDestaque: Produto[] = [];
+  let cursosDestaque: Curso[] = [];
+  let estatisticas: HomeStats = { totalUsuarios: 0, totalProdutos: 0, totalNoticias: 0, totalCursos: 0 };
+  try {
+    const data = await getHomeData();
+    noticiasDestaque = data.noticias.map(n => ({ ...n, image: n.image ?? "" }));
+    produtosDestaque = data.produtos;
+    cursosDestaque = data.cursos;
+    estatisticas = data.stats;
+  } catch (e) {
+    console.error('Falha ao obter dados homepage:', e);
+  }
+
+  return (
+    <>
+      <Head>
+        <title>Klaus Drift Brasil - Autopeças Originais</title>
+        <meta name="description" content="Autopeças originais, catálogo industrial, treinamentos e notícias do setor automotivo. Drift Brasil, qualidade OEM certificada." />
+        <meta property="og:title" content="Klaus Drift Brasil - Autopeças Originais" />
+        <meta property="og:description" content="Autopeças originais, catálogo industrial, treinamentos e notícias do setor automotivo." />
+        <meta property="og:image" content="/empresa.jpg" />
+        <meta property="og:url" content="https://portal.klaus-driftbrasil.com.br/" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Klaus Drift Brasil - Autopeças Originais" />
+        <meta name="twitter:description" content="Autopeças originais, catálogo industrial, treinamentos e notícias do setor automotivo." />
+        <meta name="twitter:image" content="/empresa.jpg" />
+        <link rel="canonical" href="https://portal.klaus-driftbrasil.com.br/" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "Klaus Drift Brasil",
+              "url": "https://portal.klaus-driftbrasil.com.br/",
+              "logo": "https://portal.klaus-driftbrasil.com.br/empresa.jpg",
+              "description": "Indústria de autopeças originais, catálogo industrial, treinamentos e notícias do setor automotivo.",
+              "address": {
+                "@type": "PostalAddress",
+                "addressCountry": "BR",
+                "addressRegion": "SP",
+                "addressLocality": "São Paulo",
+                "streetAddress": "Rua Exemplo, 123",
+                "postalCode": "01000-000"
+              },
+              "contactPoint": [{
+                "@type": "ContactPoint",
+                "telephone": "+55-11-99999-9999",
+                "contactType": "customer service",
+                "areaServed": "BR"
+              }],
+              "sameAs": [
+                "https://www.facebook.com/klausdriftbrasil",
+                "https://www.instagram.com/klausdriftbrasil"
+              ]
+            })
+          }}
+        />
+      </Head>
+      <div className="min-h-screen bg-white">
+        {/* Hero Section - Premium Design */}
+        <section className="relative min-h-[85vh] flex items-center overflow-hidden bg-gradient-to-br from-gray-100 via-white to-gray-50">
+          <HeroVideoClientWrapper srcMp4="/hero-bg.mp4" poster="/empresa.jpg" className="opacity-90" overlay={false} />
+          <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/10"></div>
+          <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-20">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/95 backdrop-blur-md border-2 border-primary/20 rounded-full text-primary text-sm font-medium mb-8 shadow-2xl">
+                <span className="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
+                Klaus Drift Brasil - Indústria de Autopeças Originais
+              </div>
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-black mb-8 leading-tight">
+                <span className="text-text-primary drop-shadow-2xl" style={{textShadow: '2px 2px 4px rgba(255,255,255,0.8), -1px -1px 2px rgba(255,255,255,0.8)'}}>
+                  Drift&nbsp;
+                </span>
+                <span className="text-primary drop-shadow-2xl" style={{textShadow: '2px 2px 4px rgba(255,255,255,0.8), -1px -1px 2px rgba(255,255,255,0.8)'}}>
+                  Brasil
+                </span>
+              </h1>
+              <p className="text-2xl md:text-4xl font-extrabold text-primary drop-shadow-lg mb-12">
+                O que move você, move a Drift também
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-4 mb-16">
+                <Link href="/pecas" className="group px-8 py-4 bg-white text-primary rounded-xl hover:bg-secondary-light transition-all duration-300 font-bold text-lg shadow-2xl hover:scale-105 hover:shadow-3xl">
+                  <span className="flex items-center gap-2">
+                    🔧 Catálogo
+                    <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </span>
+                </Link>
+                <Link href="/contato" className="px-8 py-4 bg-primary text-white rounded-xl hover:bg-primary-hover transition-all duration-300 font-bold text-lg shadow-2xl hover:scale-105">
+                  📞 Solicitar Orçamento
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Últimas Notícias */}
+        {noticiasDestaque.length > 0 && (
+          <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4">Últimas Notícias</h2>
+              <p className="text-gray-600 max-w-xl mx-auto">
+                Acompanhe as novidades do setor automotivo e lançamentos de produtos
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {noticiasDestaque.slice(0, 3).map((post, idx) => (
+                <Link key={post.id} href={`/noticias/${post.id}`} className="group bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 border border-gray-100">
+                  <div className="aspect-video bg-gradient-to-br from-primary/5 to-gray-50 flex items-center justify-center overflow-hidden">
+                    {post.image ? (
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={post.image}
+                          alt={`Notícia: ${post.title}`}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          priority={true}
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-4xl">📰</span>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+                      {post.title}
+                    </h3>
+                    <p className="text-gray-600 text-sm line-clamp-2">
+                      {getTextPreview(post.content, 80)}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div className="text-center">
+              <Link href="/noticias" className="inline-flex items-center gap-2 text-primary hover:text-primary-hover font-semibold">
+                Ver todas as notícias
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {/* Produtos em Destaque */}
+        {produtosDestaque.length > 0 && (
+          <section className="bg-gradient-to-br from-gray-50 to-white py-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-16">
+                <div className="inline-block px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-semibold mb-6 border border-green-200">
+                  🏭 CATÁLOGO INDUSTRIAL
+                </div>
+                <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6">Peças de Reposição Originais</h2>
+                <p className="text-gray-600 text-lg max-w-2xl mx-auto leading-relaxed">
+                  Catálogo completo de autopeças originais de fábrica. Qualidade OEM certificada, 
+                  especificação original do veículo e garantia de procedência industrial
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                {produtosDestaque.map((produto, idx) => (
+                  <Link key={produto.id} href={`/pecas/${produto.codigo}`} className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border border-gray-100" style={{ animationDelay: `${idx * 100}ms` }}>
+                    <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden relative">
+                      {produto.imagem ? (
+                        <div className="relative w-full h-full">
+                          <Image
+                            src={produto.imagem}
+                            alt={`Produto: ${produto.nome}`}
+                            fill
+                            className="object-contain transition-transform duration-500 group-hover:scale-105"
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-6xl group-hover:scale-110 transition-transform duration-500 filter drop-shadow-lg">🔧</span>
+                      )}
+                      {produto.destaque && (
+                        <div className="absolute top-3 right-3 px-3 py-1 bg-gradient-to-r from-primary to-primary-hover text-white rounded-full text-xs font-black shadow-lg">
+                          ⭐ TOP
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-primary transition-colors leading-tight">
+                        {produto.nome}
+                      </h3>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs text-gray-500 font-medium">
+                          Cód: {produto.codigo}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-end pt-3 border-t border-gray-100">
+                        <div className="text-primary group-hover:translate-x-1 transition-transform font-medium">
+                          Ver detalhes →
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              <div className="text-center">
+                <Link href="/pecas" className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-bold text-lg shadow-lg hover:shadow-xl hover:scale-105">
+                  Ver Catálogo de Peças Originais
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Cursos Disponíveis */}
+        {cursosDestaque.length > 0 && (
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <div className="text-center mb-16">
+              <div className="inline-block px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold mb-6 border border-blue-200">
+                🎓 CAPACITAÇÃO TÉCNICA
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6">Treinamento Especializado</h2>
+              <p className="text-gray-600 text-lg max-w-2xl mx-auto leading-relaxed">
+                Programas de capacitação técnica com especialistas da indústria automotiva. 
+                Certificações reconhecidas, conhecimento aplicado e networking profissional
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+              {cursosDestaque.map((curso, idx) => (
+                <div key={curso.id} className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border-2 border-green-200 hover:border-green-400" style={{ animationDelay: `${idx * 100}ms` }}>
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 text-center font-bold text-sm">
+                    ✅ INSCRIÇÕES ABERTAS
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-blue-100 via-indigo-50 to-purple-100 flex items-center justify-center relative overflow-hidden">
+                    {curso.imagem ? (
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={curso.imagem}
+                          alt={`Curso: ${curso.titulo}`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-6xl group-hover:scale-110 transition-transform duration-500 filter drop-shadow-lg">🎓</span>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4 line-clamp-2 group-hover:text-blue-600 transition-colors leading-tight">
+                      {curso.titulo}
+                    </h3>
+                    <div className="space-y-3 mb-6">
+                      <div className="flex items-center gap-3 text-sm text-gray-700">
+                        <span className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-xs">📍</span>
+                        <span className="font-medium">{curso.modalidade}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-gray-700">
+                        <span className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center text-xs">⏱️</span>
+                        <span className="font-medium">
+                          {curso.cargaHoraria || '—'}
+                        </span>
+                      </div>
+                    </div>
+                    <Link href={`/cursos/${curso.id}`} className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-bold group-hover:scale-105">
+                      Saiba Mais
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="text-center">
+              <Link href="/cursos" className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all font-bold text-lg shadow-lg hover:shadow-xl hover:scale-105">
+                Ver Programas de Capacitação
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </Link>
+            </div>
+          </section>
+        )}
+        {/* ...restante do conteúdo da página... */}
+      </div>
+    </>
+  );
+  }

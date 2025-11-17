@@ -1,0 +1,271 @@
+import prisma from "@/lib/prisma";
+import Link from "next/link";
+import type { Post, Produto, Curso, User, Category, PostsOnCategories } from "@prisma/client";
+
+type PostWithRelations = Post & {
+  author: Pick<User, 'name'>;
+  categories: (PostsOnCategories & { category: Category })[];
+};
+
+export default async function HomePage() {
+  // Buscar conteúdo em destaque com tratamento de erro
+  let noticiasDestaque: PostWithRelations[] = [];
+  let produtosDestaque: Produto[] = [];
+  let cursosDestaque: Curso[] = [];
+
+  try {
+    [noticiasDestaque, produtosDestaque, cursosDestaque] = await Promise.all([
+      prisma.post.findMany({
+        where: { published: true },
+        include: {
+          author: { select: { name: true } },
+          categories: { include: { category: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+      }).catch(() => []),
+      prisma.produto.findMany({
+        where: { destaque: true },
+        orderBy: { createdAt: "desc" },
+        take: 4,
+      }).catch(() => []),
+      prisma.curso.findMany({
+        where: { inscricoesAbertas: true },
+        orderBy: { createdAt: "desc" },
+        take: 3,
+      }).catch(() => []),
+    ]);
+  } catch (error) {
+    console.error("Erro ao carregar dados da homepage:", error);
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="text-2xl font-black text-primary">
+              Portal Drift Brasil
+            </Link>
+            <nav className="flex gap-6">
+              <Link href="/noticias" className="text-gray-700 hover:text-primary font-medium transition">
+                Notícias
+              </Link>
+              <Link href="/produtos" className="text-gray-700 hover:text-primary font-medium transition">
+                Produtos
+              </Link>
+              <Link href="/cursos" className="text-gray-700 hover:text-primary font-medium transition">
+                Cursos
+              </Link>
+              <Link href="/forum" className="text-gray-700 hover:text-primary font-medium transition">
+                Fórum
+              </Link>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <section className="bg-gradient-to-r from-primary to-primary/80 text-white py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl">
+            <h1 className="text-6xl font-black mb-6 leading-tight">
+              Portal Drift Brasil
+            </h1>
+            <p className="text-2xl text-white/90 mb-8">
+              Notícias, cursos, produtos e comunidade sobre drift e automobilismo
+            </p>
+            <div className="flex gap-4">
+              <Link
+                href="/noticias"
+                className="px-8 py-4 bg-white text-primary rounded-lg hover:bg-gray-100 transition font-bold text-lg"
+              >
+                Ver Notícias
+              </Link>
+              <Link
+                href="/cursos"
+                className="px-8 py-4 bg-primary/20 backdrop-blur-sm text-white border-2 border-white rounded-lg hover:bg-primary/30 transition font-bold text-lg"
+              >
+                Nossos Cursos
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Últimas Notícias */}
+      {noticiasDestaque.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-4xl font-black text-gray-900">Últimas Notícias</h2>
+            <Link href="/noticias" className="text-primary font-semibold hover:underline">
+              Ver todas →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {noticiasDestaque.map((post) => (
+              <Link
+                key={post.id}
+                href={`/noticias/${post.id}`}
+                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+              >
+                <div className="aspect-video bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                  <span className="text-5xl">📰</span>
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
+                    {post.title}
+                  </h3>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                    {post.content.substring(0, 100)}...
+                  </p>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <span>👤</span>
+                    <span>{post.author.name}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Produtos em Destaque */}
+      {produtosDestaque.length > 0 && (
+        <section className="bg-white py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-4xl font-black text-gray-900">Produtos em Destaque</h2>
+              <Link href="/produtos" className="text-primary font-semibold hover:underline">
+                Ver todos →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {produtosDestaque.map((produto) => (
+                <div
+                  key={produto.id}
+                  className="bg-gray-50 rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300"
+                >
+                  <div className="aspect-square bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                    <span className="text-5xl">🛠️</span>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">
+                      {produto.nome}
+                    </h3>
+                    <p className="text-2xl font-black text-primary">
+                      R$ {produto.preco.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Cursos Disponíveis */}
+      {cursosDestaque.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-4xl font-black text-gray-900">Cursos com Inscrições Abertas</h2>
+            <Link href="/cursos" className="text-primary font-semibold hover:underline">
+              Ver todos →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {cursosDestaque.map((curso) => (
+              <div
+                key={curso.id}
+                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 border-2 border-green-500"
+              >
+                <div className="bg-green-500 text-white px-4 py-2 text-center font-bold text-sm">
+                  ✓ INSCRIÇÕES ABERTAS
+                </div>
+                <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+                  <span className="text-6xl">🎓</span>
+                </div>
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2">
+                    {curso.titulo}
+                  </h3>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <span className="font-semibold">📍</span>
+                      <span>{curso.modalidade}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <span className="font-semibold">⏱️</span>
+                      <span>{curso.cargaHoraria}</span>
+                    </div>
+                  </div>
+                  <button className="w-full px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition font-bold">
+                    Saiba Mais
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* CTA Section */}
+      <section className="bg-gradient-to-r from-gray-900 to-gray-800 text-white py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl font-black mb-4">Junte-se à Comunidade</h2>
+          <p className="text-xl text-gray-300 mb-8">
+            Participe do maior fórum de drift do Brasil
+          </p>
+          <Link
+            href="/forum"
+            className="inline-block px-8 py-4 bg-primary text-white rounded-lg hover:bg-primary/90 transition font-bold text-lg"
+          >
+            Acessar Fórum
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <h3 className="text-xl font-black mb-4">Portal Drift Brasil</h3>
+              <p className="text-gray-400 text-sm">
+                Seu portal completo sobre drift e automobilismo no Brasil.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-bold mb-4">Navegação</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><Link href="/noticias" className="hover:text-white transition">Notícias</Link></li>
+                <li><Link href="/produtos" className="hover:text-white transition">Produtos</Link></li>
+                <li><Link href="/cursos" className="hover:text-white transition">Cursos</Link></li>
+                <li><Link href="/forum" className="hover:text-white transition">Fórum</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold mb-4">Institucional</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li><Link href="/sobre" className="hover:text-white transition">Sobre</Link></li>
+                <li><Link href="/contato" className="hover:text-white transition">Contato</Link></li>
+                <li><Link href="/termos" className="hover:text-white transition">Termos de Uso</Link></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold mb-4">Contato</h4>
+              <p className="text-gray-400 text-sm mb-2">contato@portaldrift.com.br</p>
+              <Link href="/admin" className="text-gray-500 hover:text-primary transition text-xs">
+                Acesso Admin
+              </Link>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 pt-8 text-center text-gray-500 text-sm">
+            <p>&copy; 2025 Portal Drift Brasil. Todos os direitos reservados.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}

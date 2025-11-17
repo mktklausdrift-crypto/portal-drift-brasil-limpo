@@ -1,0 +1,40 @@
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import { MainLayout } from "@/components/layout/main-layout";
+import { ToastProvider } from "@/components/ui/Toast";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Portal Drift Brasil",
+  description: "O maior portal de notícias sobre drift do Brasil",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="pt-BR">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-black`}
+      >
+        <ToastProvider>
+          <MainLayout>
+            {children}
+          </MainLayout>
+        </ToastProvider>
+      </body>
+    </html>
+  );
+}

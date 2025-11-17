@@ -1,0 +1,54 @@
+/* Estilos para garantir que o header não quebre durante carregamento */
+
+/* Prevent layout shift during session loading */
+.header-loading {
+  min-height: 80px;
+}
+
+/* Ensure proper text rendering */
+.font-semibold {
+  font-weight: 600;
+}
+
+/* Prevent text wrapping issues */
+.whitespace-nowrap {
+  white-space: nowrap;
+}
+
+/* Smooth transitions */
+.transition-colors {
+  transition-property: color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Header sticky behavior */
+.sticky {
+  position: sticky;
+}
+
+/* Z-index for header */
+.z-50 {
+  z-index: 50;
+}
+
+/* Flexbox improvements */
+.flex-shrink-0 {
+  flex-shrink: 0;
+}
+
+/* Responsive text sizes */
+.text-sm {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+/* Ensure proper image sizing */
+.object-contain {
+  object-fit: contain;
+}
+
+/* Drop shadow for logo */
+.drop-shadow-lg {
+  filter: drop-shadow(0 10px 8px rgb(0 0 0 / 0.04)) drop-shadow(0 4px 3px rgb(0 0 0 / 0.1));
+}

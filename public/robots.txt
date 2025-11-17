@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://portal.klaus-driftbrasil.com.br/sitemap.xml
