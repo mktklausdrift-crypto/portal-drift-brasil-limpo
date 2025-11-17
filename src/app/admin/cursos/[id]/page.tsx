@@ -1,4 +1,18 @@
 "use client";
+
+// Função para exportação estática dos parâmetros dinâmicos
+export async function generateStaticParams() {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "https://" + process.env.VERCEL_URL || "http://localhost:3000"}/api/admin/cursos?limit=500`, {
+      cache: "no-store"
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.courses || []).map((curso: { id: string }) => ({ id: curso.id }));
+  } catch (e) {
+    return [];
+  }
+}
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -25,7 +39,7 @@ export default function CursoAdminDetalhePage() {
   useEffect(() => {
     async function fetchCurso() {
       try {
-  const res = await fetch(`/api/admin/cursos/${id}`);
+        const res = await fetch(`/api/admin/cursos/${id}`);
         if (!res.ok) throw new Error("Curso não encontrado");
         const data = await res.json();
         setCurso(data);
