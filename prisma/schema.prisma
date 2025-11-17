@@ -1,0 +1,703 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - Usuários do sistema (compatível com NextAuth)
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  hashedPassword String?
+  role          Role      @default(STUDENT)
+  // Tipo de conta e identificação fiscal
+  tipoConta     TipoConta @default(PESSOA_FISICA)
+  cnpj          String?   @unique
+  pontosTotal   Int       @default(0)
+  rankingVisivel Boolean  @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relações NextAuth
+  accounts Account[]
+  sessions Session[]
+
+  // Relações do sistema
+  posts Post[]
+  topicosForum TopicoForum[]
+  respostasForum RespostaForum[]
+  inscricoesCurso InscricaoCurso[]
+  progressoAulas ProgressoAula[]
+  certificados Certificado[]
+
+  // Relações de gamificação
+  pontosUsuario PontosUsuario[]
+  conquistas ConquistaUsuario[]
+  notificacoes Notificacao[]
+
+  // Relações de quizzes
+  tentativasQuiz TentativaQuiz[]
+  auditLogs AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([tipoConta])
+  @@index([createdAt])
+  @@index([pontosTotal])
+  @@map("users")
+}
+
+// Enum de roles
+enum Role {
+  ADMIN
+  INSTRUCTOR
+  STUDENT
+  MEMBER
+}
+
+// Tipo de conta do usuário (cadastro para cursos/fórum)
+enum TipoConta {
+  PESSOA_FISICA
+  MECANICO
+  DISTRIBUIDOR
+}
+
+// Account model - Para NextAuth OAuth providers
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// Session model - Para NextAuth sessions
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// VerificationToken model - Para NextAuth email verification
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// Category model - Categorias para notícias
+model Category {
+  id   String @id @default(cuid())
+  name String @unique
+
+  // Relação muitos-para-muitos com Post
+  posts PostsOnCategories[]
+
+  @@map("categories")
+}
+
+// Post model - Notícias e posts do sistema
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  published Boolean  @default(false)
+  image     String?  // Imagem de destaque
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  authorId  String
+
+  // Relações
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Relação muitos-para-muitos com Category
+  categories PostsOnCategories[]
+
+  @@index([published])
+  @@index([published, createdAt])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+
+// PostsOnCategories model - Tabela de junção para Post e Category
+model PostsOnCategories {
+  postId     String
+  categoryId String
+
+  post     Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+  @@map("posts_on_categories")
+}
+
+// Produto model - Produtos do portfólio (Peças Automotivas)
+model Produto {
+  id          String   @id @default(cuid())
+  codigo      String?  @unique // Código da peça (SKU)
+  nome        String
+  descricao   String   @db.Text
+  preco       Float
+  imagem      String?
+  destaque    Boolean  @default(false)
+  categoria   String?
+  fabricante  String?  // Fabricante da peça
+  estoque     Int?     @default(0)
+  peso        Float?   // Peso em kg
+  dimensoes   String?  // Ex: "10x20x5 cm"
+  garantia    String?  // Ex: "12 meses"
+  visualizacoes Int    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relação com aplicações de veículos
+  aplicacoes Aplicacao[]
+  visualizacoesProduto VisualizacaoProduto[]
+
+  @@index([codigo])
+  @@index([categoria])
+  @@index([fabricante])
+  @@index([destaque])
+  @@index([destaque, nome])
+  @@index([nome])
+  @@index([preco])
+  @@index([visualizacoes])
+  @@map("produtos")
+}
+
+// Curso model - Cursos e workshops
+model Curso {
+  id               String   @id @default(cuid())
+  titulo           String
+  descricao        String   @db.Text
+  modalidade       String
+  cargaHoraria     String
+  imagem           String?  // Imagem do curso
+  destaque         Boolean  @default(false)
+  inscricoesAbertas Boolean @default(true)
+  avaliacaoMedia   Float?   @default(0)
+  totalAvaliacoes  Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relações
+  modulos  Modulo[]
+  inscricoes InscricaoCurso[]
+  certificados Certificado[]
+
+  @@index([destaque])
+  @@index([inscricoesAbertas])
+  @@index([inscricoesAbertas, titulo])
+  @@index([avaliacaoMedia])
+  @@index([createdAt])
+  @@map("cursos")
+}
+
+// Modulo model - Módulos do curso
+model Modulo {
+  id          String   @id @default(cuid())
+  titulo      String
+  descricao   String?  @db.Text
+  ordem       Int      @default(0)
+  cursoId     String
+  quizId      String?  // Quiz de avaliação do módulo
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  curso  Curso  @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  aulas  Aula[]
+  quiz   Quiz?  @relation(fields: [quizId], references: [id], onDelete: SetNull)
+
+  @@index([quizId])
+  @@map("modulos")
+}
+
+// Aula model - Aulas do módulo
+model Aula {
+  id          String   @id @default(cuid())
+  titulo      String
+  descricao   String?  @db.Text
+  tipo        String   // video, texto, material
+  conteudo    String?  @db.Text
+  videoUrl    String?
+  duracao     String?  // Ex: "15:30"
+  ordem       Int      @default(0)
+  moduloId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  modulo    Modulo           @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+  progresso ProgressoAula[]
+  materiais AulaMaterial[]
+
+  @@map("aulas")
+}
+
+// AulaMaterial model - Materiais (arquivos) associados às aulas
+model AulaMaterial {
+  id           String   @id @default(cuid())
+  aulaId       String
+  originalName String   // Nome original do arquivo enviado
+  fileName     String   // Nome salvo no sistema (único por aula)
+  url          String   // URL pública para download
+  size         Int      // Tamanho em bytes
+  mimeType     String   // MIME type (ex: application/pdf)
+  tipo         String?  // Categoria derivada (ex: "documento", "planilha", "apresentacao")
+  createdAt    DateTime @default(now())
+
+  aula Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
+  @@index([aulaId])
+  @@unique([aulaId, fileName])
+  @@map("aulas_materiais")
+}
+
+// InscricaoCurso model - Inscrições de usuários em cursos
+model InscricaoCurso {
+  id          String   @id @default(cuid())
+  usuarioId   String
+  cursoId     String
+  progresso   Int      @default(0) // Percentual 0-100
+  concluido   Boolean  @default(false)
+  dataInicio  DateTime @default(now())
+  dataConclusao DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  usuario User  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  curso   Curso @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, cursoId])
+  @@index([usuarioId])
+  @@index([cursoId])
+  @@index([concluido])
+  @@index([progresso])
+  @@map("inscricoes_curso")
+}
+
+// ProgressoAula model - Progresso do usuário em cada aula
+model ProgressoAula {
+  id          String   @id @default(cuid())
+  usuarioId   String
+  aulaId      String
+  concluido   Boolean  @default(false)
+  tempoAssistido Int?  // Em segundos
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  usuario User @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  aula    Aula @relation(fields: [aulaId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, aulaId])
+  @@map("progresso_aulas")
+}
+
+// TopicoForum model - Tópicos do fórum
+model TopicoForum {
+  id            String          @id @default(cuid())
+  titulo        String
+  conteudo      String          @db.Text
+  categoria     String
+  autorId       String
+  visualizacoes Int             @default(0)
+  respostas     RespostaForum[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  autor User @relation(fields: [autorId], references: [id], onDelete: Cascade)
+
+  @@index([categoria])
+  @@index([autorId])
+  @@index([createdAt])
+  @@map("topicos_forum")
+}
+
+// RespostaForum model - Respostas aos tópicos do fórum
+model RespostaForum {
+  id        String   @id @default(cuid())
+  conteudo  String   @db.Text
+  autorId   String
+  topicoId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  autor  User        @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  topico TopicoForum @relation(fields: [topicoId], references: [id], onDelete: Cascade)
+
+  @@index([topicoId])
+  @@index([autorId])
+  @@index([createdAt])
+  @@map("respostas_forum")
+}
+
+// Certificado model - Certificados de conclusão de curso
+model Certificado {
+  id                 String   @id @default(cuid())
+  usuarioId          String
+  cursoId            String
+  codigoVerificacao  String   @unique
+  dataEmissao        DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  usuario User  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  curso   Curso @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, cursoId])
+  @@map("certificados")
+}
+
+// ============================================
+// CATÁLOGO DE PEÇAS AUTOMOTIVAS
+// ============================================
+
+// Montadora model - Fabricantes de veículos (Ford, VW, Chevrolet, etc)
+model Montadora {
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  imagemUrl String?  // Logo da montadora
+  slug      String   @unique // URL-friendly (ex: "volkswagen")
+  pais      String?  // País de origem
+  ativo     Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relação com modelos
+  modelos ModeloVeiculo[]
+
+  @@map("montadoras")
+}
+
+// ModeloVeiculo model - Modelos de veículos (Gol, Focus, Civic, etc)
+model ModeloVeiculo {
+  id          String   @id @default(cuid())
+  nome        String
+  montadoraId String
+  slug        String   // URL-friendly (ex: "gol-g5")
+  tipo        String?  // Ex: "Sedan", "Hatchback", "SUV"
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relações
+  montadora   Montadora   @relation(fields: [montadoraId], references: [id], onDelete: Cascade)
+  aplicacoes  Aplicacao[]
+
+  @@unique([nome, montadoraId])
+  @@index([montadoraId])
+  @@map("modelos_veiculo")
+}
+
+// Aplicacao model - Tabela de ligação Produto <-> Modelo de Veículo
+// Define para quais veículos cada peça é compatível
+model Aplicacao {
+  id          String   @id @default(cuid())
+  produtoId   String
+  modeloId    String
+  
+  // Faixa de anos de aplicação
+  anoInicio   Int
+  anoFim      Int
+  
+  // Especificações técnicas
+  motorizacao String?  // Ex: "1.6 Zetec Rocam", "2.0 Turbo FSI"
+  versao      String?  // Ex: "Highline", "LTZ", "Sport"
+  combustivel String?  // Ex: "Flex", "Gasolina", "Diesel"
+  transmissao String?  // Ex: "Manual", "Automático", "CVT"
+  
+  // Informações adicionais
+  observacoes String?  @db.Text // Ex: "Compatível apenas com modelos com ABS"
+  posicao     String?  // Ex: "Dianteira", "Traseira", "Ambas"
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relações
+  produto Produto       @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  modelo  ModeloVeiculo @relation(fields: [modeloId], references: [id], onDelete: Cascade)
+
+  @@unique([produtoId, modeloId, anoInicio, anoFim, motorizacao])
+  @@index([produtoId])
+  @@index([modeloId])
+  @@index([anoInicio, anoFim])
+  @@map("aplicacoes")
+}
+
+// ============================================
+// Sistema de Gamificação
+// ============================================
+
+// PontosUsuario model - Sistema de pontos
+model PontosUsuario {
+  id        String   @id @default(cuid())
+  usuarioId String
+  pontos    Int      @default(0)
+  acao      String   // Ex: "aula_concluida", "curso_concluido", "primeiro_login"
+  descricao String?  // Descrição da ação que gerou os pontos
+  createdAt DateTime @default(now())
+
+  usuario User @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([acao])
+  @@map("pontos_gamificacao")
+}
+
+// TipoConquista model - Templates de conquistas/badges
+model TipoConquista {
+  id          String   @id @default(cuid())
+  nome        String   @unique
+  descricao   String
+  icone       String   // Emoji ou nome do ícone
+  cor         String   @default("#3B82F6") // Cor hex
+  pontos      Int      @default(0) // Pontos necessários para desbloquear
+  condicao    String   // Ex: "aulas_concluidas:10", "cursos_concluidos:1"
+  categoria   String   @default("geral") // "progresso", "social", "tempo", "geral"
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relações
+  conquistasUsuario ConquistaUsuario[]
+
+  @@map("tipos_conquista")
+}
+
+// ConquistaUsuario model - Conquistas desbloqueadas por usuários
+model ConquistaUsuario {
+  id              String   @id @default(cuid())
+  usuarioId       String
+  tipoConquistaId String
+  desbloqueadaEm  DateTime @default(now())
+  visualizada     Boolean  @default(false) // Para mostrar notificação
+
+  usuario       User          @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tipoConquista TipoConquista @relation(fields: [tipoConquistaId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, tipoConquistaId])
+  @@index([usuarioId])
+  @@map("conquistas_gamificacao")
+}
+
+// Enum para tipos de notificação do sistema de gamificação
+enum TipoNotificacaoGamificacao {
+  SUCCESS
+  INFO
+  WARNING
+  ERROR
+  CONQUISTA
+}
+
+// ============================================
+// SISTEMA DE QUIZZES AVANÇADO
+// ============================================
+
+// Quiz model - Quizzes criados
+model Quiz {
+  id          String   @id @default(cuid())
+  titulo      String
+  descricao   String?  @db.Text
+  categoria   String?
+  dificuldade String   @default("intermediario") // "facil", "intermediario", "dificil"
+  tempo       Int?     // Tempo limite em minutos
+  pontos      Int      @default(10) // Pontos por acerto
+  ativo       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relações
+  modulos    Modulo[]
+  questoes   QuestaoQuiz[]
+  tentativas TentativaQuiz[]
+
+  @@map("quizzes")
+}
+
+// QuestaoQuiz model - Questões dos quizzes
+model QuestaoQuiz {
+  id        String   @id @default(cuid())
+  quizId    String
+  pergunta  String   @db.Text
+  tipo      TipoQuestao @default(MULTIPLA_ESCOLHA)
+  ordem     Int      @default(0)
+  pontos    Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quiz       Quiz               @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  opcoes     OpcaoQuestao[]
+  respostas  RespostaUsuario[]
+
+  @@index([quizId])
+  @@map("questoes_quiz")
+}
+
+// Enum para tipos de questão
+enum TipoQuestao {
+  MULTIPLA_ESCOLHA
+  VERDADEIRO_FALSO
+  TEXTO_LIVRE
+  NUMERICA
+}
+
+// OpcaoQuestao model - Opções das questões de múltipla escolha
+model OpcaoQuestao {
+  id        String   @id @default(cuid())
+  questaoId String
+  texto     String
+  correta   Boolean  @default(false)
+  ordem     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  questao   QuestaoQuiz       @relation(fields: [questaoId], references: [id], onDelete: Cascade)
+  respostas RespostaUsuario[]
+
+  @@index([questaoId])
+  @@map("opcoes_questao")
+}
+
+// TentativaQuiz model - Tentativas de quizzes pelos usuários
+model TentativaQuiz {
+  id          String   @id @default(cuid())
+  usuarioId   String
+  quizId      String
+  pontuacao   Int      @default(0)
+  pontuacaoMaxima Int  @default(0)
+  percentual  Float    @default(0)
+  completa    Boolean  @default(false)
+  iniciadaEm  DateTime @default(now())
+  finalizadaEm DateTime?
+
+  usuario   User                @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  quiz      Quiz                @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  respostas RespostaUsuario[]
+
+  @@index([usuarioId])
+  @@index([quizId])
+  @@map("tentativas_quiz")
+}
+
+// RespostaUsuario model - Respostas dos usuários às questões
+model RespostaUsuario {
+  id           String   @id @default(cuid())
+  tentativaId  String
+  questaoId    String
+  opcaoId      String?  // Para múltipla escolha
+  textoResposta String? // Para texto livre/numérica
+  correta      Boolean  @default(false)
+  pontos       Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  tentativa TentativaQuiz  @relation(fields: [tentativaId], references: [id], onDelete: Cascade)
+  questao   QuestaoQuiz    @relation(fields: [questaoId], references: [id], onDelete: Cascade)
+  opcao     OpcaoQuestao?  @relation(fields: [opcaoId], references: [id], onDelete: Cascade)
+
+  @@unique([tentativaId, questaoId])
+  @@index([tentativaId])
+  @@map("respostas_usuario")
+}
+
+// VisualizacaoProduto model - Tabela para rastrear visualizações de produtos
+model VisualizacaoProduto {
+  id         String   @id @default(cuid())
+  produtoId  String
+  ip         String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+
+  @@index([produtoId])
+  @@index([timestamp])
+  @@map("visualizacoes_produto")
+}
+
+// Audit Log model - Sistema de auditoria
+model AuditLog {
+  id         String   @id @default(cuid())
+  eventType  String
+  severity   String
+  userId     String?
+  userEmail  String?
+  entityId   String?
+  entityType String?
+  oldValues  String? // JSON serializado
+  newValues  String? // JSON serializado
+  metadata   String? // JSON serializado
+  ipAddress  String?
+  userAgent  String?
+  source     String?
+  message    String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([eventType])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([severity])
+  @@map("audit_logs")
+}
+
+// Notificacao model - Sistema de notificações
+model Notificacao {
+  id         String   @id @default(cuid())
+  usuarioId  String
+  titulo     String
+  mensagem   String
+  tipo       TipoNotificacao @default(INFO)
+  lida       Boolean  @default(false)
+  link       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  usuario User @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([lida])
+  @@index([createdAt])
+  @@map("notificacoes")
+}
+
+// Enum para tipos de notificação
+enum TipoNotificacao {
+  SUCCESS
+  INFO
+  WARNING
+  ERROR
+  CONQUISTA
+}
